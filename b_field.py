@@ -90,7 +90,7 @@ for angle in angles:
 
 
 plt.plot(angles, np.real(B_PM))
-plt.title()
+plt.xlabel("Angle from the middle of a magnet [rad]")
 #plt.legend()
 plt.grid()
 plt.show()
