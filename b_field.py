@@ -42,35 +42,32 @@ nr_of_coils_per_phase = int(nr_of_coils/nr_of_phases)
 mu_rm = 1.07
 B_remanence = 1.2
 
-unit_conversion = 10
+unit_conversion = 100
 
 d_stator_outer = variables["OSD"] / unit_conversion
 d_stator_inner = variables["ISD"] / unit_conversion
-d_stator_mid = (d_stator_outer + d_stator_inner)/2 / unit_conversion
+d_stator_mid = (d_stator_outer + d_stator_inner)/2
 mag_clearance = variables["mc"] / unit_conversion
 mag_side_clearance = variables["msc"]
 nr_magnets = variables["mnr"]
+nr_magnets = 28
 p = int(nr_magnets/2)
+print(d_stator_inner, d_stator_outer, d_stator_mid)
 
 # The radial coordinate where the magnets end and start
-r_mag_end = d_stator_outer/2 - mag_clearance
-r_mag_start = d_stator_mid/2 + mag_clearance
-beta = (360/nr_magnets - mag_side_clearance)/2 # 2*beta is the angular dimension of the magnet
-lm = variables["mt"]
-ld = variables["ac"]
+r_mag_end = (d_stator_outer/2 - mag_clearance)/ unit_conversion 
+r_mag_start = (d_stator_mid/2 + mag_clearance) / unit_conversion 
+beta = (360/nr_magnets - mag_side_clearance)/180*np.pi # 2*beta is the angular dimension of the magnet
+lm = variables["mt"] / unit_conversion
+ld = variables["ac"] / unit_conversion
 
-
+# print(beta, lm, p, ld)
 # linear B = B(H) is assumed (ie operating in that region)  
 # That what they used in the 2020 modeling paper
 
-# These are values from that article
-beta = 0.029
-p = 14
-lm = 0.01
-ld = 0.026
 
 
-harmonics_order = 15
+harmonics_order = 17
 Q = np.arange(-harmonics_order * p, harmonics_order * p + 1, 2*p)
 
 def coefs(r, harm):
@@ -91,6 +88,9 @@ for angle in angles:
         b += coefs(r, harm)*np.exp(1j*harm*angle)
     B_PM.append(b)
 
+
 plt.plot(angles, np.real(B_PM))
-plt.plot(angles, np.imag(B_PM))
+plt.title()
+#plt.legend()
+plt.grid()
 plt.show()
