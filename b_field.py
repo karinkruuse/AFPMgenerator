@@ -1,61 +1,96 @@
 import numpy as np
+import pandas as pd
+import math
 import matplotlib.pyplot as plt
 
-# Constants and Design Parameters
-mu_0 = 4 * np.pi * 1e-7  # Permeability of free space (H/m)
-Br = 1.2  # Remanence of the PM (T)
-p = 4  # Number of pole pairs
-r_fixed = 0.1  # Fixed radius for analysis (m)
-g = 0.002  # Air gap thickness (m)
-h_m = 0.005  # Magnet height (m)
-R_rotor = 0.15  # Rotor radius (m)
-N_turns = 50  # Number of turns per phase
-f = 50  # Electrical frequency in Hz (e.g., at 3000 RPM)
-omega = 2 * np.pi * f / p  # Mechanical angular speed (rad/s)
+# Reads the variables that one gets from onshape and stores them in a dict
+# If a value is not a number, it tries to evaluate it as an expression
+def load_variables(file_path):
+    df = pd.read_csv(file_path)
+    variables = {}
+    
+    for _, row in df.iterrows():
+        name = row["Name"].strip()
+        value = row["Value"].strip()
+        
+        try:
+            # Try converting to float directly
+            variables[name] = float(value)
+        except ValueError:
+            # If it's not a direct number, attempt evaluation
+            try:
+                # Replace variable names with their values in the equation
+                for var in variables:
+                    value = value.replace(f"#{var}", str(variables[var]))
+                
+                # Safely evaluate the expression with math functions allowed
+                variables[name] = eval(value, {"__builtins__": None}, {"math": math, **math.__dict__})
+            except Exception:
+                variables[name] = f"Cannot evaluate: {value}"
+    
+    return variables
 
-# Increase the number of harmonics for smoother peaks
+
+# Units are mm and deg
+file_path = "onshape_variables.csv"
+variables = load_variables(file_path)
+
+nr_of_coils = variables["Nr"]
+nr_of_phases = 3
+nr_of_coils_per_phase = int(nr_of_coils/nr_of_phases)
+
+mu_rm = 1.07
+B_remanence = 1.2
+
+unit_conversion = 10
+
+d_stator_outer = variables["OSD"] / unit_conversion
+d_stator_inner = variables["ISD"] / unit_conversion
+d_stator_mid = (d_stator_outer + d_stator_inner)/2 / unit_conversion
+mag_clearance = variables["mc"] / unit_conversion
+mag_side_clearance = variables["msc"]
+nr_magnets = variables["mnr"]
+p = int(nr_magnets/2)
+
+# The radial coordinate where the magnets end and start
+r_mag_end = d_stator_outer/2 - mag_clearance
+r_mag_start = d_stator_mid/2 + mag_clearance
+beta = (360/nr_magnets - mag_side_clearance)/2 # 2*beta is the angular dimension of the magnet
+lm = variables["mt"]
+ld = variables["ac"]
+
+
+# linear B = B(H) is assumed (ie operating in that region)  
+# That what they used in the 2020 modeling paper
+
+# These are values from that article
+beta = 0.029
+p = 14
+lm = 0.01
+ld = 0.026
+
+
 harmonics_order = 15
-harmonics = np.arange(-harmonics_order * p, harmonics_order * p + 1, p)
-harmonics = harmonics[harmonics != 0]  # Exclude the zero harmonic
+Q = np.arange(-harmonics_order * p, harmonics_order * p + 1, 2*p)
 
-# Angular Positions
-theta = np.linspace(0, 2 * np.pi, 500)  # Increased resolution
+def coefs(r, harm):
+    temp = harm*(2*lm + ld)/r
+    co = 2*B_remanence/np.pi*p/harm*np.sin(harm*beta)*2*\
+    np.sinh(harm*lm/r)*np.cosh(temp/2)/mu_rm/np.sinh(temp)
+    return co
 
-# Function for B-field based on Fourier approximation
-def b_field_fourier(theta, Br, p, harmonics):
-    B_axial = np.zeros_like(theta)
-    for k in harmonics:
-        decay_factor = 1 / (1 + abs(k) / (2 * p))  # Smooth high harmonics
-        coefficient = (2 * Br / np.pi) * (p / k) * np.sin(k * np.pi / (2 * p)) * decay_factor
-        B_axial += coefficient * np.cos(k * theta)
-    return B_axial
 
-# Compute B-field distribution
-B_axial = b_field_fourier(theta, Br, p, harmonics)
+# Calculate the B field (air gap)
+# the angular coordinate should show the offset from the middle of a magnet
+angles = np.linspace(-np.pi/p, np.pi/p, 1000)
+r = d_stator_mid
+B_PM = []
+for angle in angles:
+    b = 0
+    for harm in Q:
+        b += coefs(r, harm)*np.exp(1j*harm*angle)
+    B_PM.append(b)
 
-# Compute Magnetic Flux per coil
-coil_span = 2 * np.pi / (2 * p)  # Electrical angle of coil pitch
-flux_linkage = (R_rotor - r_fixed) * B_axial * coil_span  # Approximate integral
-
-# Compute EMF using Faraday’s Law
-emf = -N_turns * omega * np.gradient(flux_linkage, theta)  # EMF per phase
-
-# Plot the B-field Distribution
-plt.figure(figsize=(8, 6))
-plt.plot(np.degrees(theta), B_axial, label="Axial B-field at r={:.3f} m".format(r_fixed))
-plt.xlabel("Rotor Position (Degrees)")
-plt.ylabel("Magnetic Flux Density B (T)")
-plt.title("Axial Flux B-field Distribution in AFPMG")
-plt.legend()
-plt.grid()
-plt.show()
-
-# Plot the Generated EMF
-plt.figure(figsize=(8, 6))
-plt.plot(np.degrees(theta), emf, label="Induced EMF per phase")
-plt.xlabel("Rotor Position (Degrees)")
-plt.ylabel("EMF (V)")
-plt.title("Generated EMF in AFPMG")
-plt.legend()
-plt.grid()
+plt.plot(angles, np.real(B_PM))
+plt.plot(angles, np.imag(B_PM))
 plt.show()

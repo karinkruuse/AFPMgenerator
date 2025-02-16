@@ -1,0 +1,25 @@
+Name,Variable type,Value,Description
+OSD,Length,100,Stator outer diameter
+ISD,Length,60,Stator inner diameter
+Lstk,Length,(#OSD-#ISD)/2,Stator width
+dss,Length,15,Coil core length
+dsy,Length,3,Stator plate thickness
+Laxial,Length,#dss+#dsy,Stator thickness
+bs0,Length,3,Stator overhang clearance
+hs0,Length,3,90 deg overhang thickness
+Wss,Length,8,Stator hole width
+tta,Angle,15,Stator overhang angle
+hs1,Length,#hs0+(#Wss-#bs0)/2*tan(#tta),full overhang thickness
+ppt,Length,1,Isolator paper thickness
+bw0,Length,2,Space between coils
+cw,Length,(#Wss-2*#ppt-#bw0)/2,Coil width
+Nr,Number,9,Number of coils
+dc,Length,#dss-#hs1-2*#ppt,coil depth
+mpt,Length,5,Magnet plate thickness
+mnr,Number,9,Magnet count
+mt,Length,3,Magnet thickness
+ac,Length,2,air cap
+mc,Length,2,magnet clearance
+ml,Length,5,magnet length
+msc,Angle,5,magnet side clearance in degrees
+hs,Length,13,magnet plate hole size for shaft
